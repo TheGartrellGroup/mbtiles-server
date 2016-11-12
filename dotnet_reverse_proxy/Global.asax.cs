@@ -11,7 +11,7 @@ namespace Tileproxy
         
         public static string SERVER = ConfigurationManager.AppSettings["SERVER"];
 
-        public static string[] PORTS = ConfigurationManager.AppSettings["SERVER"].Split(',');
+        public static string[] PORTS = ConfigurationManager.AppSettings["PORTS"].Split(',');
         public static byte[] BLANK_PNG = System.Convert.FromBase64String(ConfigurationManager.AppSettings["BLANK_PNG"]);
 
         public static byte[] BLANK_JPEG = System.Convert.FromBase64String(ConfigurationManager.AppSettings["BLANK_JPEG"]);
