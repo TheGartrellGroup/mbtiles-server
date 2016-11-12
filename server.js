@@ -5,7 +5,8 @@ var express = require("express"),
   fs = require('fs');
 
 // path to the mbtiles; default is the server.js directory
-var tilesDir = __dirname;
+var tilesDir = "C:\\TILES";
+
 var port = process.argv[2] || 4440;
 
 // Set return header
@@ -41,39 +42,60 @@ app.get('/:s/:z/:x/:y.:t', function(req, res) {
   new MBTiles(p.join(tilesDir, req.params.s + '.mbtiles'), function(err, mbtiles) {
 
     mbtiles.getTile(req.params.z, req.params.x, req.params.y, function(err, tile, headers) {
+      
+      if (err){
 
-      if (err) {
+        if(err.toString().indexOf('Tile does not exist')>-1) { //it found the mbtiles file, but didn't come up with a record...
+          
+          switch(req.params.t.toUpperCase()){
 
-        if (err.toString().indexOf('Tile does not exist') > -1) {
-
-          res.set({
-            "Content-Type": "application/x-protobuf",
-            "Access-Control-Allow-Origin": '*',
-            "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept"
-
-          });
-          res.status(200).send();
-
-        } else {
-          console.log(err)
-            //try bundle tile...
-
-          getESRIBundleTile(req.params.s, req.params.z, req.params.x, req.params.y, function(_err, tile) {
-
-            if (_err) {
+            case "PNG": //send a transparent PNG
+              var buf = new Buffer(BLANK_PNG, 'base64');
               res.set({
-                "Content-Type": "text/plain"
+                "Content-Type": "image/png",
+                "Access-Control-Allow-Origin" : '*',
+                "Access-Control-Allow-Headers":"Origin, X-Requested-With, Content-Type, Accept"
               });
-              res.status(404).send('Tile rendering error: ' + _err + '\n');
-            } else {
+              res.status(200).send(buf);
+              break;
+              
+            case "JPG": //send a white JPG
+              var buf = new Buffer(BLANK_JPG, 'base64');
+              res.set({
+                "Content-Type": "image/jpg",
+                "Access-Control-Allow-Origin" : '*',
+                "Access-Control-Allow-Headers":"Origin, X-Requested-With, Content-Type, Accept"
+              });
+              res.status(200).send(buf);
+              break;
 
-              res.set(getContentType(req.params.t));
-              res.send(tile);
-            }
-          });
-
-        }
+            case "PBF": //send nothing
+              res.set({
+                "Content-Type": "application/x-protobuf",
+                "Access-Control-Allow-Origin" : '*',
+                "Access-Control-Allow-Headers":"Origin, X-Requested-With, Content-Type, Accept"
+              });
+              res.status(200).send();
+              break;
+          }
       } else {
+        
+        getESRIBundleTile(req.params.s, req.params.z, req.params.x, req.params.y, function(_err, tile) {
+
+          if (_err) {
+            res.set({
+              "Content-Type": "text/plain"
+            });
+            res.status(404).send('Tile rendering error: ' + _err + '\n');
+          } else {
+
+            res.set(getContentType(req.params.t));
+            res.send(tile);
+          }
+        });
+
+      } 
+    } else {
 
         res.set(getContentType(req.params.t));
         res.send(tile);
@@ -101,8 +123,8 @@ function getESRIBundleTile(service, z, x, y, callback) {
 
   var filename = Pad(bundle_filename_row.toString(16), z, "R") + Pad(bundle_filename_col.toString(16), z, "C");
 
-  var bundlxFileName = p.join(tilesDir,service,'Layer','_alllayers' ,zoom, filename, +'.bundlx');
-  var bundleFileName = p.join(tilesDir, service,'Layer','_alllayers', zoom, filename, +'.bundle');
+  var bundlxFileName = tilesDir +'/' + service + "/" + zoom + "/" + filename + ".bundlx";
+  var bundleFileName = tilesDir +'/' + service + "/" + zoom + "/" + filename + ".bundle";
 
   var col = x - bundle_filename_col;
   var row = y - bundle_filename_row;
@@ -153,3 +175,7 @@ function Pad(num, zoom, type) {
 
   return type + num;
 }
+
+var BLANK_PNG = "iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAMAAABrrFhUAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAMAUExURQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALMw9IgAAAEAdFJOU////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////wBT9wclAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAAGXRFWHRTb2Z0d2FyZQBwYWludC5uZXQgNC4wLjEyQwRr7AAAAZpJREFUeF7t0CEBAAAMhMD1L/0ztIAzeG5yDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBaDaBa8gHbA2oPDvK8padyAAAAAElFTkSuQmCC";
+
+var BLANK_JPG = "/9j/4AAQSkZJRgABAQEAYABgAAD/4QBoRXhpZgAATU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAAExAAIAAAARAAAATgAAAAAAAABgAAAAAQAAAGAAAAABcGFpbnQubmV0IDQuMC4xMgAA/9sAQwD//////////////////////////////////////////////////////////////////////////////////////9sAQwH//////////////////////////////////////////////////////////////////////////////////////8AAEQgBAAEAAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/aAAwDAQACEQMRAD8AkooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooA//2Q==";
