@@ -41,11 +41,9 @@ app.get('/:s/:z/:x/:y.:t', function(req, res) {
 
   new MBTiles(p.join(tilesDir, req.params.s + '.mbtiles'), function(err, mbtiles) {
 
-    mbtiles.getTile(req.params.z, req.params.x, req.params.y, function(err, tile, headers) {
+    mbtiles.getTile(req.params.z, req.params.x, req.params.y, function(err_, tile, headers) {
       
-      if (err){
-
-        if(err.toString().indexOf('Tile does not exist')>-1) {
+      if (err_) {
         
           getESRIBundleTile(req.params.s, req.params.z, req.params.x, req.params.y, function(_err, tile) {
 
@@ -88,11 +86,11 @@ app.get('/:s/:z/:x/:y.:t', function(req, res) {
             }
           });
 
-      } 
-    } else {
+      } else {
 
         res.set(getContentType(req.params.t));
         res.send(tile);
+
       }
 
     });
@@ -106,7 +104,7 @@ console.log('Listening on port: ' + port);
 app.listen(port);
 
 function getESRIBundleTile(service, z, x, y, callback) {
-  try{
+ 
     var zoom = "L" + ((z < 10) ? "0" + z : "" + z);
 
     var _qe = 1 << z;
@@ -127,48 +125,48 @@ function getESRIBundleTile(service, z, x, y, callback) {
 
     fs.open(bundlxFileName, 'r', function(err, fd) {
 
-      if (err) callback(err);
+      if (err) {
+        callback(err);
+      } else {
 
-      var buffer = new Buffer(5);
+        var buffer = new Buffer(5);
+        try{
+        fs.read(fd, buffer, 0, 5, 16 + 5 * index, function(err, bytesRead, buffer) {
 
-      fs.read(fd, buffer, 0, 5, 16 + 5 * index, function(err, bytesRead, buffer) {
+          if(err)
+            callback(err)
 
-        if(err)
-          callback(err)
+          var offset = (buffer[0] & 0xff) + (buffer[1] & 0xff) * 256 + (buffer[2] & 0xff) * 65536 + (buffer[3] & 0xff) * 16777216 + (buffer[4] & 0xff) * 4294967296;
 
-        var offset = (buffer[0] & 0xff) + (buffer[1] & 0xff) * 256 + (buffer[2] & 0xff) * 65536 + (buffer[3] & 0xff) * 16777216 + (buffer[4] & 0xff) * 4294967296;
+          fs.open(bundleFileName, 'r', function(_err, _fd) {
+            if (_err) callback(_err)
 
-        fs.open(bundleFileName, 'r', function(_err, _fd) {
-          if (_err) callback(_err)
+            var lengthBytes = new Buffer(4);
 
-          var lengthBytes = new Buffer(4);
+            fs.read(_fd, lengthBytes, 0, 4, offset, function(__err, bytesRead, ybuffer) {
 
-          fs.read(_fd, lengthBytes, 0, 4, offset, function(__err, bytesRead, ybuffer) {
+              if (__err) callback(__err)
 
-            if (__err) callback(__err)
+              var length = (lengthBytes[0] & 0xff) + (lengthBytes[1] & 0xff) * 256 + (lengthBytes[2] & 0xff) * 65536 + (lengthBytes[3] & 0xff) * 16777216;
 
-            var length = (lengthBytes[0] & 0xff) + (lengthBytes[1] & 0xff) * 256 + (lengthBytes[2] & 0xff) * 65536 + (lengthBytes[3] & 0xff) * 16777216;
+              var result = new Buffer(length);
 
-            var result = new Buffer(length);
+                fs.read(_fd, result, 0, length, offset + 4, function(___err, bytesRead, zbuffer) {
 
-            try{
+                  if (___err) callback(___err);
 
-              fs.read(_fd, result, 0, length, offset + 4, function(___err, bytesRead, zbuffer) {
-
-                if (___err) callback(___err);
-
-                callback(null, zbuffer);
-              })
-            }catch(ex){
-              callback(ex.message)
-            }
+                  callback(null, zbuffer);
+                })
+            })
           })
         })
-      })
+        }catch(ex){
+        callback(ex.message)
+      }
+      }
+   
     })
-  }catch(ex){
-    callback(ex, null);
-  }
+
 }
 
 function Pad(num, zoom, type) {
